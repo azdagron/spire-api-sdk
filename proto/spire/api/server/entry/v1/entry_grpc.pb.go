@@ -47,6 +47,11 @@ type EntryClient interface {
 	// The caller must present an active agent X509-SVID. See the Agent
 	// AttestAgent/RenewAgent RPCs.
 	GetAuthorizedEntries(ctx context.Context, in *GetAuthorizedEntriesRequest, opts ...grpc.CallOption) (*GetAuthorizedEntriesResponse, error)
+	// Gets the entries the caller is authorized for.
+	//
+	// The caller must present an active agent X509-SVID. See the Agent
+	// AttestAgent/RenewAgent RPCs.
+	GetAuthorizedEntriesStream(ctx context.Context, in *GetAuthorizedEntriesRequest, opts ...grpc.CallOption) (Entry_GetAuthorizedEntriesStreamClient, error)
 }
 
 type entryClient struct {
@@ -120,6 +125,38 @@ func (c *entryClient) GetAuthorizedEntries(ctx context.Context, in *GetAuthorize
 	return out, nil
 }
 
+func (c *entryClient) GetAuthorizedEntriesStream(ctx context.Context, in *GetAuthorizedEntriesRequest, opts ...grpc.CallOption) (Entry_GetAuthorizedEntriesStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Entry_serviceDesc.Streams[0], "/spire.api.server.entry.v1.Entry/GetAuthorizedEntriesStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &entryGetAuthorizedEntriesStreamClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Entry_GetAuthorizedEntriesStreamClient interface {
+	Recv() (*GetAuthorizedEntriesResponse, error)
+	grpc.ClientStream
+}
+
+type entryGetAuthorizedEntriesStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *entryGetAuthorizedEntriesStreamClient) Recv() (*GetAuthorizedEntriesResponse, error) {
+	m := new(GetAuthorizedEntriesResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // EntryServer is the server API for Entry service.
 // All implementations must embed UnimplementedEntryServer
 // for forward compatibility
@@ -153,6 +190,11 @@ type EntryServer interface {
 	// The caller must present an active agent X509-SVID. See the Agent
 	// AttestAgent/RenewAgent RPCs.
 	GetAuthorizedEntries(context.Context, *GetAuthorizedEntriesRequest) (*GetAuthorizedEntriesResponse, error)
+	// Gets the entries the caller is authorized for.
+	//
+	// The caller must present an active agent X509-SVID. See the Agent
+	// AttestAgent/RenewAgent RPCs.
+	GetAuthorizedEntriesStream(*GetAuthorizedEntriesRequest, Entry_GetAuthorizedEntriesStreamServer) error
 	mustEmbedUnimplementedEntryServer()
 }
 
@@ -180,6 +222,9 @@ func (UnimplementedEntryServer) BatchDeleteEntry(context.Context, *BatchDeleteEn
 }
 func (UnimplementedEntryServer) GetAuthorizedEntries(context.Context, *GetAuthorizedEntriesRequest) (*GetAuthorizedEntriesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAuthorizedEntries not implemented")
+}
+func (UnimplementedEntryServer) GetAuthorizedEntriesStream(*GetAuthorizedEntriesRequest, Entry_GetAuthorizedEntriesStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetAuthorizedEntriesStream not implemented")
 }
 func (UnimplementedEntryServer) mustEmbedUnimplementedEntryServer() {}
 
@@ -320,6 +365,27 @@ func _Entry_GetAuthorizedEntries_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Entry_GetAuthorizedEntriesStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetAuthorizedEntriesRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(EntryServer).GetAuthorizedEntriesStream(m, &entryGetAuthorizedEntriesStreamServer{stream})
+}
+
+type Entry_GetAuthorizedEntriesStreamServer interface {
+	Send(*GetAuthorizedEntriesResponse) error
+	grpc.ServerStream
+}
+
+type entryGetAuthorizedEntriesStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *entryGetAuthorizedEntriesStreamServer) Send(m *GetAuthorizedEntriesResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 var _Entry_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "spire.api.server.entry.v1.Entry",
 	HandlerType: (*EntryServer)(nil),
@@ -353,6 +419,12 @@ var _Entry_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Entry_GetAuthorizedEntries_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetAuthorizedEntriesStream",
+			Handler:       _Entry_GetAuthorizedEntriesStream_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "spire/api/server/entry/v1/entry.proto",
 }

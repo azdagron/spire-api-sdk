@@ -45,6 +45,12 @@ service Entry {
     // The caller must present an active agent X509-SVID. See the Agent
     // AttestAgent/RenewAgent RPCs.
     rpc GetAuthorizedEntries(GetAuthorizedEntriesRequest) returns (GetAuthorizedEntriesResponse);
+
+    // Gets the entries the caller is authorized for.
+    //
+    // The caller must present an active agent X509-SVID. See the Agent
+    // AttestAgent/RenewAgent RPCs.
+    rpc GetAuthorizedEntriesStream(GetAuthorizedEntriesRequest) returns (stream GetAuthorizedEntriesResponse);
 }
 
 message CountEntriesRequest {
